@@ -90,12 +90,13 @@ def get_df(code_or_file, **kwargs):
 
     return df
 
+base_dir = 'min1'
 def gen(filename):
     fmt = "<HHfffffII"
-    df = pd.read_csv(f'min/{filename}',index_col='datetime')
+    df = pd.read_csv(f'min1/data/{filename}',index_col='datetime')
     code = filename.split('.')[0]
     mkt = 'sh' if code[0] == '5' else 'sz'
-    f = open(f'tdx/{mkt}{code}.lc5','wb')
+    f = open(f'min1/tdx/{mkt}{code}.lc5','wb')
     buf = bytearray(struct.calcsize(fmt) * len(df))
 
     idx = 0
