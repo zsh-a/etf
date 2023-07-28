@@ -23,8 +23,8 @@ code = '159915'
 df = pd.DataFrame()
 idx = 0
 while True:
-    data = client.bars(symbol=f'{code}',frequency=0,start=idx,offset=800)
-    # data = client.index(frequency=0, market=MARKET_SZ, symbol='399006', start=idx, offset=800)
+    # data = client.bars(symbol=f'{code}',frequency=0,start=idx,offset=800)
+    data = client.index(frequency=0, market=6, symbol='931009', start=idx, offset=800)
     idx += len(data)
 
     df = pd.concat([df,data.iloc[::-1]])

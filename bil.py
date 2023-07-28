@@ -8,12 +8,16 @@ import backtrader.indicators as btind  # 导入策略分析模块
 
 # stock_hfq_df = pd.read_csv('t.csv')
 origin = pd.read_csv(
-    "etf/hfq/510880.csv", index_col="datetime", parse_dates=["datetime"]
+    "etf/hfq/588000.csv", index_col="datetime", parse_dates=["datetime"]
 )
 # stock_hfq_df.to_csv('t.csv',index=False)
 stock_hfq_df = origin
 # stock_hfq_df = origin.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum', 'amount': 'sum'}).dropna()
 ma_15 = origin.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum', 'amount': 'sum'}).dropna()
+stock_hfq_df = ma_15
+ma_30 = origin.resample('30min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum', 'amount': 'sum'}).dropna()
+ma_60 = origin.resample('60min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum', 'amount': 'sum'}).dropna()
+
 # ma_15 = origin
 
 print(stock_hfq_df)
@@ -392,9 +396,11 @@ class TestStrategy4(bt.Strategy):
         self.last_trade_date = None
         self.pos = False
         self.count = 0
+        self.today_buy = False
+        self.today_sell = False
         self.today_trade = False
 
-        self.num_fund = 10
+        self.num_fund = 5
 
 
 
@@ -403,64 +409,106 @@ class TestStrategy4(bt.Strategy):
         self.datahigh = self.datas[0].high
         self.datalow = self.datas[0].low
 
-        self.sma1 = bt.indicators.SimpleMovingAverage(self.dataclose, period=30)
-        self.sma2 = bt.indicators.SimpleMovingAverage(self.dataclose, period=60)
+        self.sma30_15min = bt.indicators.SimpleMovingAverage(self.datas[0].close, period=30)
+        self.sma60_15min = bt.indicators.SimpleMovingAverage(self.datas[0].close, period=60)
+        
+        # self.sma30_30min = bt.indicators.SimpleMovingAverage(self.datas[1].close, period=30)
+        # self.sma60_30min = bt.indicators.SimpleMovingAverage(self.datas[1].close, period=60)
+
+        # self.sma30_60min = bt.indicators.SimpleMovingAverage(self.datas[2].close, period=30)
+        # self.sma60_60min = bt.indicators.SimpleMovingAverage(self.datas[2].close, period=60)
 
     def next(self):
         cur_date = self.datas[0].datetime.date(0)
         if cur_date is None or cur_date != self.last_trade_date:
+            self.today_buy = False
             self.today_trade = False
             self.last_trade_date = cur_date
-        
-        if self.dataclose[0] > self.sma1[0]
-        if not self.pos :
-            if self.data.datetime.time() == datetime.time(9, 35):  # 检查是否是第一个5分钟线
-                # print(self.dataclose[0] ,self.dataclose[-1])
-                if self.dataclose[0] > self.dataopen[0]:
-                    cash = self.broker.get_cash()
-                    size = int(cash * 0.99 / self.data.close[0] / 100) * 100  # 计算最大可用资金买入的股数
-                    if size >= 100:
-                        # print(f"create order size : {size}")
-                        self.order = self.buy(size=max(size, 100))
-                        # self.order = self.order_target_percent(target=0.98)
-                        self.pos = True
-                        self.count = 0
-        else:
-            if self.count >= self.params.period and self.data.datetime.time() == datetime.time(14, 55):  # 检查是否是收盘时间
+        # print(self.datas[0].datetime.date(0),self.datas[0].datetime.time(0),self.sma30_15min[0],self.sma60_15min[0])
+
+        if self.datalow[-1] <= self.sma60_15min[0] and self.dataclose[0] > self.sma60_15min[0] and (self.sma30_15min[0] > self.sma30_15min[-1] or self.sma60_15min[0] > self.sma60_15min[-1]):
+            if self.count < self.num_fund and not self.today_trade:
+                cash = 1000
+                size = int(cash * 0.99 / self.data.close[0] / 100) * 100  # 计算最大可用资金买入的股数
+                if size >= 100:
+                    self.order = self.buy(size=max(size, 100))
+                    self.today_buy = True
+                    self.today_trade = True
+                    self.count += 1
+
+        if self.datalow[-1] >= self.sma60_15min[0] and self.dataclose[0] < self.sma60_15min[0] and (self.sma30_15min[0] < self.sma30_15min[-1] or self.sma60_15min[0] < self.sma60_15min[-1]):
+            if self.count > 0 and not self.today_trade:
                 pos = self.getposition()
-                self.sell(size=pos.size)
-                self.pos = False
-                self.count = 0
-    # def notify_order(self, order):
-    #     # 未被处理的订单
-    #     if order.status in [order.Submitted, order.Accepted]:
-    #         return
-    #     # 已经处理的订单
-    #     if order.status in [order.Completed, order.Canceled, order.Margin]:
-    #         if order.isbuy():
-    #             # self.pos_unusable += order.executed.size
-    #             self.log(
-    #                     'BUY EXECUTED, ref:%.0f,Price: %.4f, Cost: %.4f, Comm %.4f, Size: %.4f, Stock: %s' %
-    #                     (order.ref, # 订单编号
-    #                     order.executed.price, # 成交价
-    #                     order.executed.value, # 成交额
-    #                     order.executed.comm, # 佣金
-    #                     order.executed.size, # 成交量
-    #                     order.data._name)) # 股票名称
-    #         else: # Sell
-    #             # self.pos_usable -= order.executed.size
-    #             self.log('SELL EXECUTED, ref:%.0f, Price: %.4f, Cost: %.4f, Comm %.4f, Size: %.4f, Stock: %s' %
-    #                         (order.ref,
-    #                         order.executed.price,
-    #                         order.executed.value,
-    #                         order.executed.comm,
-    #                         order.executed.size,
-    #                         order.data._name))
+                self.sell(size=pos.size / self.count)
+                self.count -= 1
+                self.today_trade = True
+                self.today_sell = True
+
+        # if self.dataclose[-1] < self.sma60_30min[0] and self.dataclose[0] > self.sma60_30min[0] and self.sma60_30min[0] > self.sma30_30min[0]:
+        #     if self.count < self.num_fund and not self.today_trade:
+        #         cash = 1000
+        #         size = int(cash * 0.99 / self.data.close[0] / 100) * 100  # 计算最大可用资金买入的股数
+        #         if size >= 100:
+        #             self.order = self.buy(size=max(size, 100))
+        #             self.today_buy = True
+        #             self.today_trade = True
+        #             self.count += 1
+
+        # if self.dataclose[-1] < self.sma60_60min[0] and self.dataclose[0] > self.sma60_60min[0] and self.sma60_30min[0] > self.sma30_30min[0]:
+        #     if self.count < self.num_fund and not self.today_trade:
+        #         cash = 1000
+        #         size = int(cash * 0.99 / self.data.close[0] / 100) * 100  # 计算最大可用资金买入的股数
+        #         if size >= 100:
+        #             self.order = self.buy(size=max(size, 100))
+        #             self.today_buy = True
+        #             self.today_trade = True
+        #             self.count += 1
+        # if self.dataclose[0] < self.sma30_15min and self.sma60_15min[0] < self.sma30_15min[0]:
+        #     if self.count > 0 and not self.today_trade:
+        #         pos = self.getposition()
+        #         self.sell(size=pos.size / self.count)
+        #         self.count -= 1
+        #         self.today_trade = True
+        #         self.today_sell = True
+
+        # if self.dataclose[0] < self.sma30_30min and self.sma60_30min[0] < self.sma30_30min[0]:
+        #     if self.count > 0 and not self.today_trade:
+        #         pos = self.getposition()
+        #         self.sell(size=pos.size // self.count)
+        #         self.count -= 1
+        #         self.today_trade = True
+        #         self.today_sell = True
+
+    def notify_order(self, order):
+        # 未被处理的订单
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        # 已经处理的订单
+        if order.status in [order.Completed, order.Canceled, order.Margin]:
+            if order.isbuy():
+                # self.pos_unusable += order.executed.size
+                self.log(
+                        'BUY EXECUTED, ref:%.0f,Price: %.4f, Cost: %.4f, Comm %.4f, Size: %.4f, Stock: %s' %
+                        (order.ref, # 订单编号
+                        order.executed.price, # 成交价
+                        order.executed.value, # 成交额
+                        order.executed.comm, # 佣金
+                        order.executed.size, # 成交量
+                        order.data._name)) # 股票名称
+            else: # Sell
+                # self.pos_usable -= order.executed.size
+                self.log('SELL EXECUTED, ref:%.0f, Price: %.4f, Cost: %.4f, Comm %.4f, Size: %.4f, Stock: %s' %
+                            (order.ref,
+                            order.executed.price,
+                            order.executed.value,
+                            order.executed.comm,
+                            order.executed.size,
+                            order.data._name))
 
 cerebro = bt.Cerebro()  # 初始化回测系统
-start_date = datetime.datetime(2021, 4, 21)  # 回测开始时间
+start_date = datetime.datetime(2021,1, 1)  # 回测开始时间
 
-end_date = datetime.datetime(2023, 5, 1)  # 回测结束时间
+end_date = datetime.datetime(2021, 9, 1)  # 回测结束时间
 data = bt.feeds.PandasData(
     dataname=stock_hfq_df, fromdate=start_date, todate=end_date
 )  # 加载数据
@@ -480,11 +528,14 @@ sh_csv = pd.read_csv(
 sh = bt.feeds.PandasData(dataname=sh_csv, fromdate=start_date, todate=end_date)  # 加载数据
 
 ma_15 = bt.feeds.PandasData(dataname=ma_15, fromdate=start_date, todate=end_date)  # 加载数据
+ma_30 = bt.feeds.PandasData(dataname=ma_30, fromdate=start_date, todate=end_date)  # 加载数据
+ma_60 = bt.feeds.PandasData(dataname=ma_60, fromdate=start_date, todate=end_date)  # 加载数据
 cerebro.adddata(data)  # 将数据传入回测系统
-cerebro.adddata(sh)
-cerebro.adddata(ma_15)
+# cerebro.adddata(ma_15)
+# cerebro.adddata(ma_30)
+# cerebro.adddata(ma_60)
 
-cerebro.addstrategy(TestStrategy3)  # 将交易策略加载到回测系统中
+cerebro.addstrategy(TestStrategy4)  # 将交易策略加载到回测系统中
 # strats = cerebro.optstrategy(TestStrategy,period=range(1, 3))
 start_cash = 10000
 cerebro.broker.setcash(start_cash)  # 设置初始资本为 100000
@@ -538,4 +589,4 @@ print(result[0].analyzers._SharpeRatio_A.get_analysis())
 
 # print(type(result[0].analyzers))
 
-# cerebro.plot(style="candlestick")  # 画图
+cerebro.plot(style="candlestick")  # 画图
